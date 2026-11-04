@@ -14,12 +14,12 @@ def read_prices(
     date_column: str = "date",
     price_column: str = "close",
     date_format: str = "%Y-%m-%d",
-) -> dict[str, np.ndarray]:
-    """Return company -> price array, sorted from oldest to newest.
+) -> tuple[dict[str, np.ndarray], np.ndarray]:
+    """Return ``(prices_by_company, dates)`` with one shared sorted date axis.
 
-    Each CSV row is one observation. Required default columns are company,
-    date (YYYY-MM-DD), and close. Extra columns are ignored. Equal dates retain
-    their CSV order. Indices count observations, not elapsed calendar days.
+    ``prices_by_company`` is the existing company -> price array dictionary.
+    ``dates`` is a NumPy datetime array. Every company price array is aligned
+    with that same date array; missing observations become ``NaN``.
     """
     data = pd.read_csv(path, dtype={company_column: "string"})
     required = {company_column, date_column, price_column}
@@ -36,30 +36,43 @@ def read_prices(
     if not np.isfinite(data[price_column]).all():
         raise ValueError("Prices must be finite")
 
-    # Sort chronologically, then collect one price array per company.
-    data = data.sort_values(date_column, kind="stable")
-    return {
-        company: rows[price_column].to_numpy()
-        for company, rows in data.groupby(company_column, sort=False)
-    }
+    # Build one date axis, then align every company price array to that axis.
+    dates = np.sort(data[date_column].unique())
+    prices_by_company = {}
+    for company, rows in data.groupby(company_column, sort=False):
+        price_series = rows.set_index(date_column)[price_column]
+        prices_by_company[company] = price_series.reindex(dates).to_numpy()
+    return prices_by_company, dates
 
 
 def plot_prices(
     prices_by_company: dict[str, np.ndarray],
+    dates: np.ndarray | None = None,
     ax: Axes | None = None,
 ) -> Axes:
-    """Plot every company price array in a dictionary on one chart."""
+    """Plot each company on a shared date axis, or observation indices."""
     plt.style.use('dark_background')
     if not prices_by_company:
         raise ValueError("Provide at least one company and price array")
     if ax is None:
         _, ax = plt.subplots(figsize=(10, 4), layout="constrained")
+    if dates is not None:
+        dates = np.asarray(dates)
+        if dates.ndim != 1:
+            raise ValueError("Dates must be a one-dimensional array")
     for company, prices in prices_by_company.items():
         values = np.asarray(prices, dtype=float)
-        if values.ndim != 1 or values.size == 0 or not np.isfinite(values).all():
-            raise ValueError(f"{company!r} must have a nonempty, finite, one-dimensional price array")
-        ax.plot(values, label=company, linewidth=1.8)
-    ax.set(title="Stock prices", xlabel="Observation index (oldest → newest)", ylabel="Price")
+        real_values = values[~np.isnan(values)]
+        if values.ndim != 1 or values.size == 0 or real_values.size == 0 or not np.isfinite(real_values).all():
+            raise ValueError(f"{company!r} must have a nonempty, one-dimensional numeric price array")
+        if dates is not None and len(dates) != len(values):
+            raise ValueError(f"{company!r} has {len(values)} prices but there are {len(dates)} dates")
+        if dates is None:
+            ax.plot(values, label=company, linewidth=1.8)
+        else:
+            ax.plot(dates, values, label=company, linewidth=1.8)
+    x_label = "Date" if dates is not None else "Observation index (oldest → newest)"
+    ax.set(title="Stock prices", xlabel=x_label, ylabel="Price")
     ax.grid(True, alpha=0.25)
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend()
@@ -85,11 +98,11 @@ if __name__ == "__main__":
     parser.add_argument("csv_path", help="CSV with company, date, and close columns")
     parser.add_argument("companies", nargs="+", help="Company or ticker(s) to plot")
     args = parser.parse_args()
-    prices_by_company = read_prices(args.csv_path)
+    prices_by_company, dates = read_prices(args.csv_path)
     try:
         chosen_prices = select_companies(prices_by_company, args.companies)
     except KeyError as error:
         parser.error(f"{error}. Available: {', '.join(prices_by_company)}")
-    plot_prices(chosen_prices)
+    plot_prices(chosen_prices, dates)
     plt.show()
 

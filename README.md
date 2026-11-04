@@ -2,7 +2,7 @@
 
 A small Python 3.9+ foundation using pandas for CSV loading, sorting, and grouping, with three functions in `Data_reader.py`:
 
-- `read_prices(path)` returns a dictionary mapping each company to a NumPy price array, sorted by date ascending.
+- `read_prices(path)` returns two items: a dictionary mapping each company to a NumPy price array and one shared, sorted NumPy datetime array.
 - `select_companies(prices_by_company, companies)` returns a smaller dictionary containing only the requested companies.
 - `plot_prices(prices_by_company)` plots every company in a dictionary on one chart and returns the Matplotlib axes. Call `plt.show()` to display it or `ax.figure.savefig("prices.png")` to save it.
 
@@ -27,22 +27,29 @@ Use it from Python:
 import matplotlib.pyplot as plt
 from Data_reader import read_prices, select_companies, plot_prices
 
-prices = read_prices("example_prices.csv")
+prices, dates = read_prices("example_prices.csv")
 chosen_prices = select_companies(prices, ["AAPL", "MSFT"])
-plot_prices(chosen_prices)
+plot_prices(chosen_prices, dates)
+plt.show()
+```
+
+The `dates` array can also be passed directly to Matplotlib:
+
+```python
+plt.plot(dates, prices["AAPL"])
 plt.show()
 ```
 
 To plot all companies in the CSV, pass the full dictionary directly:
 
 ```python
-plot_prices(prices)
+plot_prices(prices, dates)
 ```
 
 For different headers or dates, pass column names and a `strptime` date format:
 
 ```python
-prices = read_prices(
+prices, dates = read_prices(
     "stocks.csv",
     company_column="Ticker",
     date_column="Date",
@@ -51,7 +58,7 @@ prices = read_prices(
 )
 ```
 
-Index 0 is the earliest observation for that company. Missing trading days are not filled, and indices across companies do not necessarily refer to the same date. Duplicate dates retain their CSV order. Dates are used for sorting and are not included in the returned arrays. Use consistently adjusted prices if you want to account for stock splits or dividends.
+The result can be accessed by index: `result[0]` is the company-to-price dictionary and `result[1]` is the shared datetime array. Every company price array has the same length as `result[1]`. Missing observations are stored as `NaN`, which Matplotlib displays as a gap. Use consistently adjusted prices if you want to account for stock splits or dividends.
 
 Missing columns, empty values, and invalid dates or prices raise `ValueError`. A header-only CSV returns an empty dictionary.
 
@@ -90,9 +97,9 @@ Use the saved CSV with the plotting program:
 import matplotlib.pyplot as plt
 from Data_reader import read_prices, select_companies, plot_prices
 
-prices = read_prices("egx_prices.csv")
+prices, dates = read_prices("egx_prices.csv")
 chosen_prices = select_companies(prices, ["COMI.CA", "HRHO.CA"])
-plot_prices(chosen_prices)
+plot_prices(chosen_prices, dates)
 plt.show()
 ```
 
