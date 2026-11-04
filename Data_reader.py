@@ -45,7 +45,6 @@ def read_prices(
 
 
 def plot_prices(
-    
     prices_by_company: dict[str, np.ndarray],
     ax: Axes | None = None,
 ) -> Axes:
@@ -63,7 +62,7 @@ def plot_prices(
     ax.set(title="Stock prices", xlabel="Observation index (oldest → newest)", ylabel="Price")
     ax.grid(True, alpha=0.25)
     ax.spines[["top", "right"]].set_visible(False)
-    ax.legend(bbox_to_anchor=(1, 1))
+    ax.legend()
     
     return ax
 
