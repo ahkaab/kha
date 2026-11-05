@@ -106,3 +106,14 @@ if __name__ == "__main__":
     plot_prices(chosen_prices, dates)
     plt.show()
 
+def keep_complete_dates(price_dict, time):
+    price_matrix = np.array(list(price_dict.values()))
+    valid_dates = np.isfinite(price_matrix).all(axis=0)
+
+    clean_prices = {
+        company: prices[valid_dates]
+        for company, prices in price_dict.items()
+    }
+    clean_time = time[valid_dates]
+
+    return clean_prices, clean_time

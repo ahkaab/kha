@@ -1,29 +1,28 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-from Data_reader import read_prices, plot_prices
+from Data_reader import read_prices, plot_prices, keep_complete_dates
 from Portfolio import Portfolio
 price_dict,time = read_prices("test_data.csv")
+price_dict,time = keep_complete_dates(price_dict,time)
 companies = [i for i in price_dict]
 initial_prices = np.zeros(len(price_dict))
 time_steps = len(price_dict[companies[1]])
 for i in range(len(price_dict)):
     initial_prices[i] = price_dict[companies[i]][0]
-print(len(companies))  
+print(companies)
+
+
 
 N =100
 test_portfolios = np.zeros(shape=(N,time_steps))
+works = False
 
 def portfolio_evolution(portfolio):
-    portfolio_Value_Evolution = np.zeros(time_steps)
-    portfolio_Value_Evolution[0] = portfolio.value
-    for j in range(1,time_steps):
-        portfolio_Value_Evolution[j] = 0
-        for i in range(len(price_dict)):
-            portfolio_Value_Evolution[j] +=  portfolio.holdings[i] * price_dict[companies[i]][j]
-    return portfolio_Value_Evolution
+    price_matrix = np.array(list(price_dict.values()))
+    return portfolio.holdings @ price_matrix
 
 for i in range(N):
-    test_portfolios[i] = portfolio_evolution(Portfolio(10000, np.ones(len(initial_prices)), initial_prices, Random= True))
+    test_portfolios[i] = portfolio_evolution(Portfolio(price_dict, 10000,0, np.ones(len(initial_prices)), initial_prices,companies, Random= True))
 
 plt.style.use('dark_background')
 #for i in range(10):
