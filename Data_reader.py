@@ -12,7 +12,7 @@ def read_prices(
     path: str,
     company_column: str = "company",
     date_column: str = "date",
-    price_column: str = "close",
+    price_column: str = "open",
     date_format: str = "%Y-%m-%d",
 ) -> tuple[dict[str, np.ndarray], np.ndarray]:
     """Return ``(prices_by_company, dates)`` with one shared sorted date axis.
