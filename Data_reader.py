@@ -35,6 +35,13 @@ def read_prices(
         raise ValueError("Company, date, and price must not be empty")
     if not np.isfinite(data[price_column]).all():
         raise ValueError("Prices must be finite")
+    duplicate_rows = data.duplicated([company_column, date_column], keep=False)
+    if duplicate_rows.any():
+        duplicate = data.loc[duplicate_rows, [company_column, date_column]].iloc[0]
+        raise ValueError(
+            "Duplicate company/date record: "
+            f"{duplicate[company_column]} on {duplicate[date_column].date()}"
+        )
 
     # Build one date axis, then align every company price array to that axis.
     dates = np.sort(data[date_column].unique())
@@ -106,8 +113,25 @@ if __name__ == "__main__":
     plot_prices(chosen_prices, dates)
     plt.show()
 
-def keep_complete_dates(price_dict, time):
-    price_matrix = np.array(list(price_dict.values()))
+def keep_complete_dates(
+    price_dict: dict[str, np.ndarray],
+    time: np.ndarray,
+) -> tuple[dict[str, np.ndarray], np.ndarray]:
+    """Keep only dates where every company has a finite price.
+
+    The returned dictionary and time array remain aligned. This is useful for
+    portfolio calculations that require every held company to have a price on
+    every simulated date.
+    """
+    if not price_dict:
+        raise ValueError("Provide at least one company price array")
+
+    time = np.asarray(time)
+    price_arrays = [np.asarray(prices, dtype=float) for prices in price_dict.values()]
+    if any(prices.ndim != 1 or len(prices) != len(time) for prices in price_arrays):
+        raise ValueError("Every price array must be one-dimensional and match the time array length")
+
+    price_matrix = np.vstack(price_arrays)
     valid_dates = np.isfinite(price_matrix).all(axis=0)
 
     clean_prices = {

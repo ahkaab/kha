@@ -2,11 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from Data_reader import read_prices, plot_prices, keep_complete_dates
 from Portfolio import Portfolio
+
 price_dict,time = read_prices("test_data.csv")
 price_dict,time = keep_complete_dates(price_dict,time)
 companies = [i for i in price_dict]
 initial_prices = np.zeros(len(price_dict))
-time_steps = len(price_dict[companies[1]])
+time_steps = len(price_dict[companies[0]])
 for i in range(len(price_dict)):
     initial_prices[i] = price_dict[companies[i]][0]
 print(companies)
@@ -22,7 +23,15 @@ def portfolio_evolution(portfolio):
     return portfolio.holdings @ price_matrix
 
 for i in range(N):
-    test_portfolios[i] = portfolio_evolution(Portfolio(price_dict, 10000,0, np.ones(len(initial_prices)), initial_prices,companies, Random= True))
+    test_portfolios[i] = portfolio_evolution(
+    Portfolio(
+    price_dict=price_dict,
+    Initial_Bond_Holdings=0,
+    Initial_Holdings=np.ones(len(initial_prices)),
+    Stock_Prices=initial_prices,
+    Company_Names=companies,
+    Random=True,
+    Initial_Value=10000,))
 
 plt.style.use('dark_background')
 #for i in range(10):
