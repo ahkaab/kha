@@ -3,11 +3,12 @@ import numpy as np
 class Portfolio():
     """A portfolio of stock share quantities and a separate cash-bond balance."""
 
-    def __init__(self,price_dict, Initial_Bond_Holdings, Initial_Holdings , Stock_Prices,Company_Names, trading_step_interest_rate = 0, Random = False, Initial_Value = 10000):
+    def __init__(self,open_price_dict, close_price_dict, Initial_Bond_Holdings, Initial_Holdings , Stock_Prices,Company_Names, trading_step_interest_rate = 0, Random = False, Initial_Value = 10000):
         self.stagnant_days = 0 
         self.value = Initial_Holdings @ Stock_Prices + Initial_Bond_Holdings
         self.trading_step_interest_rate = trading_step_interest_rate
-        self.price_dict = price_dict
+        self.open_price_dict = open_price_dict
+        self.close_price_dict = close_price_dict
         self.company_names = list(Company_Names)
         if not Random: 
             holdings = Initial_Holdings
@@ -37,7 +38,7 @@ class Portfolio():
     
     def update_Portfolio(self,time_step, to_sell, to_buy):
         stock_prices = np.array([
-                    self.price_dict[company][time_step]
+                    self.open_price_dict[company][time_step]
                     for company in self.company_names
                 ])
         #Bond intrest 
@@ -55,13 +56,13 @@ class Portfolio():
         # Use prices from one time step so a rebalance can preserve value.
 
         for company in to_sell:
-            self.bonds += (self.portfolio[company] * self.price_dict[company][time_step])
+            self.bonds += (self.portfolio[company] * self.open_price_dict[company][time_step])
             self.portfolio[company] = 0
         if len(to_buy)>0:
             available_funds = self.bonds
             even_funds = available_funds/len(to_buy)
         for company in to_buy:                
-            self.portfolio[company] += even_funds/self.price_dict[company][time_step]
+            self.portfolio[company] += even_funds/self.open_price_dict[company][time_step]
             self.bonds -= even_funds
 
         # Recalculate after trading; at unchanged prices this should equal start_value.
@@ -70,22 +71,29 @@ class Portfolio():
             raise ValueError(f'Portfolio Value changed by {self.value - start_value} unexpectedly!')
 
     def naive_stock_valuation(self, time_step, check_interval = 7):
-        #Method to calculate the last weeks mean and Std and assess wether or not to buy off of that
+        """Signal for today's open using yesterday's close and earlier closes.
+
+        time_step is the execution session. Today's close is never accessed.
+        Compare yesterday's close with check_interval closes preceding it.
+        """
+        if check_interval < 1:
+            raise ValueError("check_interval must be positive")
         to_buy = set()
         to_sell = set()
-        if time_step >= check_interval:
+        signal_step = time_step - 1
+        if signal_step >= check_interval:
             for company in self.company_names:
-                current_price = self.price_dict[company][time_step]
-                week_mean = np.mean(self.price_dict[company][time_step-check_interval:time_step])
-                week_std = np.std(self.price_dict[company][time_step-check_interval:time_step])
+                previous_close = self.close_price_dict[company][signal_step]
+                past_closes = self.close_price_dict[company][signal_step-check_interval:signal_step]
+                week_mean = np.mean(past_closes)
+                week_std = np.std(past_closes)
                 # likely in a dip and will regain
-                if  week_mean - week_std <current_price < week_mean:
+                if  week_mean - week_std < previous_close < week_mean:
                     to_buy.add(company)
                 # likely to be peak
-                elif week_mean + week_std <current_price:
+                elif week_mean + week_std < previous_close:
                     to_sell.add(company)
         return to_buy,to_sell
 
 #TO DO:
 # Add weights to selling buy so not buy all and sell all
-   

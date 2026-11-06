@@ -52,6 +52,33 @@ def read_prices(
     return prices_by_company, dates
 
 
+def read_open_close_prices(
+    path: str,
+) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray], np.ndarray]:
+    """Return aligned opens, closes, and dates, retaining complete dates only.
+
+    Apply one shared mask to both fields so missing observations cannot shift
+    the signal prices relative to the execution prices. No prices are filled.
+    """
+    open_prices, dates = read_prices(path, price_column="open")
+    close_prices, close_dates = read_prices(path, price_column="close")
+    if not open_prices:
+        raise ValueError("Provide at least one company price array")
+    if not np.array_equal(dates, close_dates):
+        raise ValueError("Open and close dates must match")
+    arrays = list(open_prices.values()) + list(close_prices.values())
+    if any(np.any(prices[np.isfinite(prices)] <= 0) for prices in arrays):
+        raise ValueError("Open and close prices must be positive")
+    valid_dates = np.isfinite(np.vstack(arrays)).all(axis=0)
+    if not valid_dates.any():
+        raise ValueError("No dates have complete open and close prices")
+    return (
+        {company: prices[valid_dates] for company, prices in open_prices.items()},
+        {company: prices[valid_dates] for company, prices in close_prices.items()},
+        dates[valid_dates],
+    )
+
+
 def plot_prices(
     prices_by_company: dict[str, np.ndarray],
     dates: np.ndarray | None = None,

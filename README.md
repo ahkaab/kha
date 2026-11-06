@@ -1,5 +1,31 @@
 # Stock price reader
 
+The trading backtest loads both fields together:
+
+```python
+from Data_reader import read_open_close_prices
+
+open_prices, close_prices, dates = read_open_close_prices("test_data.csv")
+```
+
+Both dictionaries use the same companies and sorted date axis. Dates missing
+either field for any company are removed with one shared mask; prices are never
+filled. The existing single-field `read_prices` interface remains available.
+
+`Portfolio` takes `open_price_dict` and `close_price_dict`. Its
+`naive_stock_valuation(time_step=i, check_interval=k)` generates a signal for
+execution at session `i`'s open: it compares session `i-1`'s close against the
+`k` closes preceding that close. It returns no orders until those observations
+exist. `update_Portfolio(i, ...)` executes at session `i`'s open. `Test.py`
+values both strategy and buy-and-hold portfolios at each session's open and
+retains a seven-observation trading schedule across its different lookbacks.
+
+Run timing and alignment checks with:
+
+```sh
+.venv/bin/python -m unittest discover -s tests -v
+```
+
 A small Python 3.9+ foundation using pandas for CSV loading, sorting, and grouping, with three functions in `Data_reader.py`:
 
 - `read_prices(path)` returns two items: a dictionary mapping each company to a NumPy price array and one shared, sorted NumPy datetime array.
